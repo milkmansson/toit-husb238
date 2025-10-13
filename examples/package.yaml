@@ -1,0 +1,5 @@
+dependencies:
+  husb238:
+    path: ../
+  ina226:
+    path: ../../toit-ina226

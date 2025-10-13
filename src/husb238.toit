@@ -42,16 +42,16 @@ class Husb238:
   static PD-CURRENT-1-25A_ ::= 0b0011 // 1.25A
   static PD-CURRENT-1-50A_ ::= 0b0100 // 1.5A
   static PD-CURRENT-1-75A_ ::= 0b0101 // 1.75A
-  static PD-CURRENT-2-A_   ::= 0b0110 // 2A
+  static PD-CURRENT-2-00A_ ::= 0b0110 // 2A
   static PD-CURRENT-2-25A_ ::= 0b0111 // 2.25A
-  static PD-CURRENT-2-5A_  ::= 0b1000 // 2.5A
+  static PD-CURRENT-2-50A_ ::= 0b1000 // 2.5A
   static PD-CURRENT-2-75A_ ::= 0b1001 // 2.75A
-  static PD-CURRENT-3-A_   ::= 0b1010 // 3A
+  static PD-CURRENT-3-00A_ ::= 0b1010 // 3A
   static PD-CURRENT-3-25A_ ::= 0b1011 // 3.25A
-  static PD-CURRENT-3-5A_  ::= 0b1100 // 3.5A
-  static PD-CURRENT-4-A_   ::= 0b1101 // 4A
-  static PD-CURRENT-4-5A_  ::= 0b1110 // 4.5A
-  static PD-CURRENT-5-A_   ::= 0b1111 // 5A
+  static PD-CURRENT-3-50A_ ::= 0b1100 // 3.5A
+  static PD-CURRENT-4-00A_ ::= 0b1101 // 4A
+  static PD-CURRENT-4-50A_ ::= 0b1110 // 4.5A
+  static PD-CURRENT-5-00A_ ::= 0b1111 // 5A
 
   /** for use with REG-PD-STATUS-0 */
   static PD-STATUS1-CC-DIR-MASK_     ::= 0b10000000
@@ -67,13 +67,27 @@ class Husb238:
   static PD-STATUS1-RESPONSE-TRANS-FAIL_    ::= 0b101 // Transaction Fail (no good CRC)
   // Others - reserved
 
-  static PD-STATUS1-5V-VOLTAGE-OTHERS_    ::= 0b0 // Voltage information of 5V contract
-  static PD-STATUS1-5V-VOLTAGE-5V_        ::= 0b1 // Voltage information of 5V contract
+  static PD-STATUS1-5V-VOLTAGE-OTHERS_ ::= 0b0 // Voltage information of 5V contract
+  static PD-STATUS1-5V-VOLTAGE-5V_     ::= 0b1 // Voltage information of 5V contract
 
-  static PD-STATUS1-5V-CURRENT-DEFAULT_   ::= 0b00 // Current information of 5V contract
-  static PD-STATUS1-5V-CURRENT-1-5A_      ::= 0b01 // Current information of 5V contract
-  static PD-STATUS1-5V-CURRENT-2-4A_      ::= 0b10 // Current information of 5V contract
-  static PD-STATUS1-5V-CURRENT-3-A_       ::= 0b11 // Current information of 5V contract
+  static PD-STATUS1-5V-CURRENT-DEFAULT_ ::= 0b00 // Current information of 5V contract
+  static PD-STATUS1-5V-CURRENT-1-5A_    ::= 0b01 // Current information of 5V contract
+  static PD-STATUS1-5V-CURRENT-2-4A_    ::= 0b10 // Current information of 5V contract
+  static PD-STATUS1-5V-CURRENT-3-A_     ::= 0b11 // Current information of 5V contract
+
+  static PDO-SRC-DETECT-MASK_  ::= 0b10000000
+  static PDO-SRC-CURRENT-MASK_ ::= 0b00001111
+
+  static PD-SELECT-VOLTAGE-MASK_       ::= 0b11110000
+  static PD-SELECT-VOLTAGE-UNSELECTED_ ::= 0b0000 // Unselected
+  static PD-SELECT-VOLTAGE-5V_         ::= 0b0001 // PD 5V
+  static PD-SELECT-VOLTAGE-9V_         ::= 0b0010 // PD 9V
+  static PD-SELECT-VOLTAGE-12V_        ::= 0b0011 // PD 12V
+  static PD-SELECT-VOLTAGE-15V_        ::= 0b1000 // PD 15V
+  static PD-SELECT-VOLTAGE-18V_        ::= 0b1001 // PD 18V
+  static PD-SELECT-VOLTAGE-20V_        ::= 0b1010 // PD 20V
+
+
 
   /** SRC-PDO-*V options */
   static PDO-DETECT-MASK_  ::= 0b10000000
@@ -85,12 +99,13 @@ class Husb238:
   /** $REG-GO-COMMAND_ Register */
   static REG-GO-COMMAND-MASK_ ::= 0b00011111
 
-  static REG-GO-COMMAND-REQUEST_     ::= 0b00001 // Requests the PDO set by PDO_SELECT
-  static REG-GO-COMMAND-GET-SRC_CAP_ ::= 0b00100 // Send out Get_SRC_Cap command
-  static REG-GO-COMMAND-HARD-RESET_  ::= 0b10000 // Send out hard reset command
+  static REG-GO-COMMAND-REQUEST-PDO_ ::= 0b00001   // Requests the PDO saved in PDO_SELECT register
+  static REG-GO-COMMAND-GET-SRC-CAP_ ::= 0b00100   // Get_SRC_Cap command
+  static REG-GO-COMMAND-HARD-RESET_  ::= 0b10000   // Hard reset command
 
   reg_/registers.Registers := ?
   logger_/log.Logger := ?
+  capabilities_/Map := {:}
 
   constructor
       dev/serial.Device
@@ -98,14 +113,216 @@ class Husb238:
     logger_ = logger.with-name "husb238"
     reg_ = dev.registers
 
+    get-capabilities --force-refresh
 
 
+  read-status-voltage --code=false -> float?:
+    raw-voltage := read-register_ REG-PD-STATUS0_ --mask=PD-STATUS0-SRC-VOLTAGE-MASK_
+    raw-current := read-register_ REG-PD-STATUS0_ --mask=PD-STATUS0-SRC-CURRENT-MASK_
+    if (raw-voltage == 0) and (raw-current == 0):
+      // No explicit PD contract
+      return (is-legacy-5v ? 5.0 : 0.0)
+    value := convert-code-to-voltage_ raw-voltage
+    if value == null:
+      logger_.error "read-status-voltage: unexpected value" --tags={"PD-STATUS0-SRC-VOLTAGE-MASK" : bits-16_ raw-voltage}
+      return null
+    if code: return raw-voltage
+    return value
+
+  read-status-current --code=false -> float?:
+    raw-voltage := read-register_ REG-PD-STATUS0_ --mask=PD-STATUS0-SRC-VOLTAGE-MASK_
+    raw-current := read-register_ REG-PD-STATUS0_ --mask=PD-STATUS0-SRC-CURRENT-MASK_
+    if (raw-voltage == 0) and (raw-current == 0):
+      // Device is in unattached mode: return legacy information:
+      return (is-legacy-5v ? legacy-5v-current : 0.0)
+    value := convert-code-to-current_ raw-current
+    if value == null:
+      logger_.error "read-status-current: unexpected value" --tags={"PD-STATUS0-SRC-CURRENT-MASK" : bits-16_ raw-current}
+      return null
+    if code: return raw-current
+    return value
+
+  is-legacy-5v -> bool:
+    if is-pd-present: return false
+    raw := read-register_ REG-PD-STATUS1_ --mask=PD-STATUS1-5V-VOLTAGE-MASK_
+    return (raw == 1)
+
+  legacy-5v-current -> float:
+    raw := read-register_ REG-PD-STATUS1_ --mask=PD-STATUS1-5V-CURRENT-MASK_
+    if raw == 0b01: return 1.5
+    else if raw == 0b10: return 2.4
+    else if raw == 0b11: return 3.0
+    else: return 0.0
+
+  /**
+  Returns which CC is connected - CC1 or CC2. (USBC cable orientation)
+  */
+  read-cc-direction -> int?:
+    if is-cable-attached:
+      raw := read-register_ REG-PD-STATUS1_ --mask=PD-STATUS1-CC-DIR-MASK_
+      return raw + 1  // 1=CC1, 2=CC2
+    else:
+      logger_.error "read-cc-direction: reading CC direction, but cable not attached."
+      return 1
+
+  /**
+  Returns Type-C physical attach state.
+
+  It goes 1 whenever the HUSB238 sees an Rp on CC (i.e., a cable/source is
+  present), even if there is no PD explicit contract. It’s only 0 in the true
+  'unattached mode.'
+  */
+  is-cable-attached -> bool:
+    raw := read-register_ REG-PD-STATUS1_ --mask=PD-STATUS1-ATTACH-MASK_
+    return (raw == 1)
+
+  /**
+  Returns whether there is a current PD contract in operation.
+  */
+  is-pd-present -> bool:
+    raw := read-register_ REG-PD-STATUS0_ --mask=PD-STATUS0-SRC-VOLTAGE-MASK_
+    return raw != 0
+
+  /**
+  Requests a PDO.
+
+  Returns PD_STATUS1:PD_RESPONSE.
+  */
+  request-pdo voltage/int -> int:
+    // check selection is in the capabilities list:
+    assert: capabilities_.contains voltage
+    assert: is-cable-attached
+    pdo-code := convert-voltage-to-pdo-code_ voltage
+    assert: pdo-code != null
+
+    // Send the request value to the register:
+    write-register_ REG-SRC-PDO_ pdo-code --mask=PD-SELECT-VOLTAGE-MASK_
+    // Execute request
+    write-register_ REG-GO-COMMAND_ REG-GO-COMMAND-REQUEST-PDO_ --mask=REG-GO-COMMAND-MASK_
+    sleep --ms=100
+
+    // Retrieve result
+    result := read-register_ REG-PD-STATUS1_ --mask=PD-STATUS1-RESPONSE-MASK_
+    if result == PD-STATUS1-RESPONSE-SUCCESS_:
+      logger_.info "request-pdo: requested PDO Success." --tags={ "voltage" : voltage }
+    else:
+      logger_.error "request-pdo: PDO Not Successful." --tags={
+        "voltage" : voltage,
+        "code": result,
+        "result": (get-string-result-code result)}
+    return result
+
+
+  get-capabilities --force-refresh=false -> Map:
+    // Refreshes data in device registers for src capabilities:
+    if force-refresh:
+      write-register_ REG-GO-COMMAND_ REG-GO-COMMAND-GET-SRC-CAP_ --mask=REG-GO-COMMAND-MASK_
+      sleep --ms=250
+
+    capabilities_.clear
+    if (read-register_ REG-SRC-PDO-5V_ --mask=PDO-SRC-DETECT-MASK_) == 1:
+      capabilities_[5] = convert-code-to-current_ (read-register_ REG-SRC-PDO-5V_ --mask=PDO-SRC-CURRENT-MASK_)
+    if (read-register_ REG-SRC-PDO-9V_ --mask=PDO-SRC-DETECT-MASK_) == 1:
+      capabilities_[9] = convert-code-to-current_ (read-register_ REG-SRC-PDO-9V_ --mask=PDO-SRC-CURRENT-MASK_)
+    if (read-register_ REG-SRC-PDO-12V_ --mask=PDO-SRC-DETECT-MASK_) == 1:
+      capabilities_[12] = convert-code-to-current_ (read-register_ REG-SRC-PDO-12V_ --mask=PDO-SRC-CURRENT-MASK_)
+    if (read-register_ REG-SRC-PDO-15V_ --mask=PDO-SRC-DETECT-MASK_) == 1:
+      capabilities_[15] = convert-code-to-current_ (read-register_ REG-SRC-PDO-15V_ --mask=PDO-SRC-CURRENT-MASK_)
+    if (read-register_ REG-SRC-PDO-18V_ --mask=PDO-SRC-DETECT-MASK_) == 1:
+      capabilities_[18] = convert-code-to-current_ (read-register_ REG-SRC-PDO-18V_ --mask=PDO-SRC-CURRENT-MASK_)
+    if (read-register_ REG-SRC-PDO-20V_ --mask=PDO-SRC-DETECT-MASK_) == 1:
+      capabilities_[20] = convert-code-to-current_ (read-register_ REG-SRC-PDO-20V_ --mask=PDO-SRC-CURRENT-MASK_)
+    return capabilities_
+
+  hard-reset -> none:
+    write-register_ REG-GO-COMMAND_ REG-GO-COMMAND-HARD-RESET_ --mask=REG-GO-COMMAND-MASK_
+    // back off while VIN is being discharged and the chip reboots
+    sleep --ms=300
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  convert-code-to-current_ raw-value -> float?:
+    if raw-value == PD-CURRENT-0-50A_: return 0.5
+    else if raw-value == PD-CURRENT-0-70A_: return 0.7
+    else if raw-value == PD-CURRENT-1-00A_: return 1.0
+    else if raw-value == PD-CURRENT-1-25A_: return 1.25
+    else if raw-value == PD-CURRENT-1-50A_: return 1.5
+    else if raw-value == PD-CURRENT-1-75A_: return 1.75
+    else if raw-value == PD-CURRENT-2-00A_: return 2.0
+    else if raw-value == PD-CURRENT-2-25A_: return 2.25
+    else if raw-value == PD-CURRENT-2-50A_: return 2.5
+    else if raw-value == PD-CURRENT-2-75A_: return 2.75
+    else if raw-value == PD-CURRENT-3-00A_: return 3.0
+    else if raw-value == PD-CURRENT-3-25A_: return 3.25
+    else if raw-value == PD-CURRENT-3-50A_: return 3.5
+    else if raw-value == PD-CURRENT-4-00A_: return 4.0
+    else if raw-value == PD-CURRENT-4-50A_: return 4.5
+    else if raw-value == PD-CURRENT-5-00A_: return 5.0
+    else:
+      return null
+
+  convert-code-to-voltage_ raw-value -> float?:
+    if raw-value == PD-SRC-VOLTAGE-5V_: return 5.0
+    else if raw-value == PD-SRC-VOLTAGE-9V_: return 9.0
+    else if raw-value == PD-SRC-VOLTAGE-12V_: return 12.0
+    else if raw-value == PD-SRC-VOLTAGE-15V_: return 15.0
+    else if raw-value == PD-SRC-VOLTAGE-18V_: return 18.0
+    else if raw-value == PD-SRC-VOLTAGE-20V_: return 20.0
+    else if raw-value == PD-SRC-VOLTAGE-UNATTACHED_: return 0.0
+    else:
+      return null
+
+  convert-voltage-to-code_ voltage -> int?:
+    v := (voltage is float ? (voltage as float).round : voltage)  // 12.0 -> 12
+    if v == 5.0: return PD-SRC-VOLTAGE-5V_
+    else if v == 9.0: return PD-SRC-VOLTAGE-9V_
+    else if v == 12.0: return PD-SRC-VOLTAGE-12V_
+    else if v == 15.0: return PD-SRC-VOLTAGE-15V_
+    else if v == 18.0: return PD-SRC-VOLTAGE-18V_
+    else if v == 20.0: return PD-SRC-VOLTAGE-20V_
+    else:
+      return null
+
+  convert-voltage-to-pdo-code_ voltage -> int?:
+    v := (voltage is float ? (voltage as float).round : voltage)  // 12.0 -> 12
+    if v == 5.0: return PD-SELECT-VOLTAGE-5V_
+    else if v == 9.0: return PD-SELECT-VOLTAGE-9V_
+    else if v == 12.0: return PD-SELECT-VOLTAGE-12V_
+    else if v == 15.0: return PD-SELECT-VOLTAGE-15V_
+    else if v == 18.0: return PD-SELECT-VOLTAGE-18V_
+    else if v == 20.0: return PD-SELECT-VOLTAGE-20V_
+    else:
+      return PD-SELECT-VOLTAGE-UNSELECTED_
+
+  get-string-result-code result/int -> string:
+    if result == PD-STATUS1-RESPONSE-NO-RESPONSE_: return "No Response"
+    else if result == PD-STATUS1-RESPONSE-SUCCESS_: return "Success"
+    else if result == PD-STATUS1-RESPONSE-INVALID_: return "Invalid command or argument"
+    else if result == PD-STATUS1-RESPONSE-NOT-SUPPORTED_: return "Command not supported"
+    else if result == PD-STATUS1-RESPONSE-TRANS-FAIL_: return "Transaction Fail (no good CRC)"
+    return "Unknown result code (0x$(%0x result))"
 
   /**
   Reads the given register with the supplied mask.
 
   Given that register reads are largely similar, implemented here. If the mask
-   is left at 0xFFFF and offset at 0x0, it is treated as a read from the whole
+   is left at 0xFF and offset at 0x0, it is treated as a read from the whole
    register.
   */
   read-register_ register/int --mask/int=0xFF --offset/int=(mask.count-trailing-zeros) -> any:
@@ -120,7 +337,7 @@ class Husb238:
   Writes the given register with the supplied mask.
 
   Given that register writes are largely similar, it is implemented here.  If
-   the mask is left at 0xFFFF and offset at 0x0, it is treated as a write to the
+   the mask is left at 0xFF and offset at 0x0, it is treated as a write to the
    whole register.
   */
   write-register_ register/int value/any --mask/int=0xFF --offset/int=(mask.count-trailing-zeros) -> none:
@@ -138,9 +355,21 @@ class Husb238:
       reg_.write-u8 register new-value
 
   /**
-  Clamps the supplied value to specified limit.
+  Provides strings to display bitmasks nicely when testing.
   */
-  clamp-value_ value/any --upper/any?=null --lower/any?=null -> any:
-    if upper != null: if value > upper:  return upper
-    if lower != null: if value < lower:  return lower
-    return value
+  bits-16_ x/int --min-display-bits/int=0 -> string:
+    if (x > 255) or (min-display-bits > 8):
+      out-string := "$(%b x)"
+      out-string = out-string.pad --left 16 '0'
+      out-string = "$(out-string[0..4]).$(out-string[4..8]).$(out-string[8..12]).$(out-string[12..16])"
+      return out-string
+    else if (x > 15) or (min-display-bits > 4):
+      out-string := "$(%b x)"
+      out-string = out-string.pad --left 8 '0'
+      out-string = "$(out-string[0..4]).$(out-string[4..8])"
+      return out-string
+    else:
+      out-string := "$(%b x)"
+      out-string = out-string.pad --left 4 '0'
+      out-string = "$(out-string[0..4])"
+      return out-string

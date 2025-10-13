@@ -1,4 +1,4 @@
-name: max1704x
-description: Support for MAX17048/MAX17049 I2C base LiPo battery gauge IC.
+name: husb238
+description: Support for Hynetek HUSB238 I2C USB-C PD Sink/Trigger.
 environment:
   sdk: ^2.0.0-alpha.188
