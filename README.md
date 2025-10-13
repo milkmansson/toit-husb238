@@ -111,7 +111,7 @@ print "$(husb238-driver.get-capabilities)"
 > instantiated.  This is because writing the GO command again when a contract is
 > in place will cause it to reset to the physically jumpered voltages.  (If the
 > jumpered contract is different, then the circut will change voltage
-> unexpectedly.  To override this and get fresh data, use
+> unexpectedly.)  To override this and get fresh data, use
 > `get-capabilities --force-refresh`.
 
 ### Switching Voltage
@@ -162,3 +162,19 @@ welcome and appreciated.
   Adafruit 5807 breakout board.
 - All trademarks belong to their respective owners.
 - No warranties for this work, express or implied.
+
+## Credits
+- [Florian](https://github.com/floitsch) for the tireless help and encouragement
+- The wider Toit developer team (past and present) for a truly excellent product
+- AI has been used for code and text reviews, analysing and compiling data and
+  results, and assisting with ensuring accuracy.
+
+## About Toit
+One would assume you are here because you know what Toit is.  If you dont:
+> Toit is a high-level, memory-safe language, with container/VM technology built
+> specifically for microcontrollers (not a desktop language port). It gives fast
+> iteration (live reloads over Wi-Fi in seconds), robust serviceability, and
+> performance that’s far closer to C than typical scripting options on the
+> ESP32. [[link](https://toitlang.org/)]
+- [Review on Soracom](https://soracom.io/blog/internet-of-microcontrollers-made-easy-with-toit-x-soracom/)
+- [Review on eeJournal](https://www.eejournal.com/article/its-time-to-get-toit)
