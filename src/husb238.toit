@@ -87,8 +87,6 @@ class Husb238:
   static PD-SELECT-VOLTAGE-18V_        ::= 0b1001 // PD 18V
   static PD-SELECT-VOLTAGE-20V_        ::= 0b1010 // PD 20V
 
-
-
   /** SRC-PDO-*V options */
   static PDO-DETECT-MASK_  ::= 0b10000000
   static PDO-CURRENT-MASK_ ::= 0b00001111
@@ -106,6 +104,7 @@ class Husb238:
   reg_/registers.Registers := ?
   logger_/log.Logger := ?
   capabilities_/Map := {:}
+  previous-request_/int := 0
 
   constructor
       dev/serial.Device
@@ -114,7 +113,6 @@ class Husb238:
     reg_ = dev.registers
 
     get-capabilities --force-refresh
-
 
   read-status-voltage --code=false -> float?:
     raw-voltage := read-register_ REG-PD-STATUS0_ --mask=PD-STATUS0-SRC-VOLTAGE-MASK_
@@ -163,7 +161,7 @@ class Husb238:
       return raw + 1  // 1=CC1, 2=CC2
     else:
       logger_.error "read-cc-direction: reading CC direction, but cable not attached."
-      return 1
+      return null
 
   /**
   Returns Type-C physical attach state.
@@ -186,7 +184,7 @@ class Husb238:
   /**
   Requests a PDO.
 
-  Returns PD_STATUS1:PD_RESPONSE.
+  Returns PD_STATUS1:PD_RESPONSE.  Note that the Current is not requested.
   */
   request-pdo voltage/int -> int:
     // check selection is in the capabilities list:
@@ -197,7 +195,7 @@ class Husb238:
 
     // Send the request value to the register:
     write-register_ REG-SRC-PDO_ pdo-code --mask=PD-SELECT-VOLTAGE-MASK_
-    // Execute request
+    // Execute request command:
     write-register_ REG-GO-COMMAND_ REG-GO-COMMAND-REQUEST-PDO_ --mask=REG-GO-COMMAND-MASK_
     sleep --ms=100
 
@@ -205,6 +203,7 @@ class Husb238:
     result := read-register_ REG-PD-STATUS1_ --mask=PD-STATUS1-RESPONSE-MASK_
     if result == PD-STATUS1-RESPONSE-SUCCESS_:
       logger_.info "request-pdo: requested PDO Success." --tags={ "voltage" : voltage }
+      previous-request_ = voltage
     else:
       logger_.error "request-pdo: PDO Not Successful." --tags={
         "voltage" : voltage,
@@ -217,6 +216,8 @@ class Husb238:
     // Refreshes data in device registers for src capabilities:
     if force-refresh:
       write-register_ REG-GO-COMMAND_ REG-GO-COMMAND-GET-SRC-CAP_ --mask=REG-GO-COMMAND-MASK_
+      if is-pd-present and (capabilities_.contains previous-request_) and (read-status-voltage != previous-request_):
+        request-pdo previous-request_
       sleep --ms=250
 
     capabilities_.clear
@@ -238,24 +239,6 @@ class Husb238:
     write-register_ REG-GO-COMMAND_ REG-GO-COMMAND-HARD-RESET_ --mask=REG-GO-COMMAND-MASK_
     // back off while VIN is being discharged and the chip reboots
     sleep --ms=300
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
   convert-code-to-current_ raw-value -> float?:
     if raw-value == PD-CURRENT-0-50A_: return 0.5
@@ -316,7 +299,7 @@ class Husb238:
     else if result == PD-STATUS1-RESPONSE-INVALID_: return "Invalid command or argument"
     else if result == PD-STATUS1-RESPONSE-NOT-SUPPORTED_: return "Command not supported"
     else if result == PD-STATUS1-RESPONSE-TRANS-FAIL_: return "Transaction Fail (no good CRC)"
-    return "Unknown result code (0x$(%0x result))"
+    return "Unknown result code (0x$(%02x result))"
 
   /**
   Reads the given register with the supplied mask.
@@ -346,7 +329,7 @@ class Husb238:
     // check the value fits the field
     assert: ((value & ~max) == 0)
 
-    if (mask == 0xFFFF) and (offset == 0):
+    if (mask == 0xFF) and (offset == 0):
       reg_.write-u8 register (value & 0xFF)
     else:
       new-value/int := reg_.read-u8 register

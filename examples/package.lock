@@ -1,3 +1,4 @@
+sdk: ^2.0.0-alpha.188
 prefixes:
   husb238: ..
   ina226: toit-ina226
@@ -5,4 +6,7 @@ packages:
   ..:
     path: ..
   toit-ina226:
-    path: ../../toit-ina226
+    url: github.com/milkmansson/toit-ina226
+    name: ina226
+    version: 1.0.0
+    hash: 7399003f2bc340de60fe7311b667eefb2fcf3c3e

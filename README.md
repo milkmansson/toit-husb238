@@ -47,6 +47,19 @@ Main points:
   attached device must be able to react to what it is recieving.  I use a
   boost/buck converter to manage this.
 
+### Why use this device?
+There could be several reasons - some concrete examples:
+- You have 12v LED devices which need 12v, but a microcontroller needing 5v.  With
+  this device (and a boost/buck converter to give 5v to the ESP32) one can
+  accept any USB power source, but then make an informed decision about what to
+  do next with the power level it has recieved.
+- You have many LEDs in your load, and wish to recieve as much of that 65W power
+  supply as possible.  Some PD sources cap 12v at 3a making 36 W - whereas 20v
+  capped at 3a is 60 W.  In this case, if your intended LED's are 12v you would
+  require an additional converter, allowing a 5v and a 12v rail.  You could
+  query the device and prevent the LED's from being switched on if the power
+  supply isn't strong enough.
+
 ### PD Sequence Intro
 1. When attaching, the power source and consumer (sink) determine roles and
    orientation.  The source turns on 5V and advertises current options. (If an
@@ -83,7 +96,10 @@ To use this device to power your 5V ESP32 project:
   is also possible simply by running a new request.
 
 ### Example Operation
-Please see the examples in the examples folder. Special explanations are below:
+Please see the examples in the examples folder.  Note that the driver has been
+written in such a way as the user should not have to deal with constants when
+requesting voltages.  This does mean however that requesting unsupported
+voltages will result in error.  Other special explanations below:
 
 ### Supported PD Voltage/Current Capabilities
 The capabilities offered and supported by the Driver/IC are listed.  Not all
@@ -97,8 +113,9 @@ is sometimes seen by PD listeners/testers.
 #### Voltages
   - 5V, 9V, 12V, 15V, 18V, 20V
 ### Example 'get-capability' output:
-Note that in this example 18v isn't a supported option at all, so it is missing
-from the list.
+Note that in the below example, 18v isn't a supported option at all, so whilst
+it is supported by the IC, it is not supported by this PD device, so it is
+missing from the list.
 ```
 // Obtain the data and print it:
 print "$(husb238-driver.get-capabilities)"
@@ -112,7 +129,9 @@ print "$(husb238-driver.get-capabilities)"
 > in place will cause it to reset to the physically jumpered voltages.  (If the
 > jumpered contract is different, then the circut will change voltage
 > unexpectedly.)  To override this and get fresh data, use
-> `get-capabilities --force-refresh`.
+> `get-capabilities --force-refresh`.  The driver will attempt to request
+> the last obtained contract directly after, but a monentary change in voltage
+> is possible.
 
 ### Switching Voltage
 ```Toit
@@ -122,6 +141,11 @@ result = husb238-driver.request-pdo it
 // 'result' contains one of PD-STATUS1-RESPONSE-* constants.
 ```
 
+### Hard Reset
+The device has a 'hard reset' capability, which in this driver is called using
+`hard-reset`.  This command seems to send the I2C bus for a spin.  Executing it
+in the constructor causes the ESP32 to crash with an error of
+'ESP_ERR_INVALID_STATE'.  This issue has not been worked through yet.
 
 ## Pinout Notes - Adafruit breakout
 On the adafruit board pictured, the power pins and remaining data pins are quite
@@ -137,9 +161,11 @@ close together.  This may be on purpose.
   examples](https://learn.adafruit.com/adafruit-husb238-usb-type-c-power-delivery-breakout/circuitpython-and-python)!
 
 
-## Not Implemented
-Currently, no support has been added yet for Apple Divider 3 and BC1.2.  (I
-don't have the devices etc to work this through.)
+## Not Yet Implemented
+- Currently, no support has been added yet for Apple Divider 3 and BC1.2.  (I
+  don't have the devices etc to work this through.)
+- Hard Reset - find a way to prevent (or recover from) I@C bus issues arising
+  from using this command.
 
 ## Links
 - [Introduction to USB Power Delivery with

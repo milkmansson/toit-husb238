@@ -2,4 +2,5 @@ dependencies:
   husb238:
     path: ../
   ina226:
-    path: ../../toit-ina226
+    url: github.com/milkmansson/toit-ina226
+    version: ^1.0.0
