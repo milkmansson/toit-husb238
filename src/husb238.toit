@@ -111,7 +111,6 @@ class Husb238:
       --logger/log.Logger=log.default:
     logger_ = logger.with-name "husb238"
     reg_ = dev.registers
-
     get-capabilities --force-refresh
 
   read-status-voltage --code=false -> float?:
@@ -167,8 +166,8 @@ class Husb238:
   Returns Type-C physical attach state.
 
   It goes 1 whenever the HUSB238 sees an Rp on CC (i.e., a cable/source is
-  present), even if there is no PD explicit contract. It’s only 0 in the true
-  'unattached mode.'
+    present), even if there is no PD explicit contract. It’s only 0 in the true
+    'unattached mode.'
   */
   is-cable-attached -> bool:
     raw := read-register_ REG-PD-STATUS1_ --mask=PD-STATUS1-ATTACH-MASK_
@@ -315,7 +314,7 @@ class Husb238:
     else:
       masked-value := (raw-value & mask) >> offset
       return masked-value
-
+    sleep --ms=25
   /**
   Writes the given register with the supplied mask.
 
@@ -336,6 +335,7 @@ class Husb238:
       new-value     &= ~mask
       new-value     |= (value << offset)
       reg_.write-u8 register new-value
+    sleep --ms=25
 
   /**
   Provides strings to display bitmasks nicely when testing.
