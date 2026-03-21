@@ -105,7 +105,7 @@ class Husb238:
       --logger/log.Logger=log.default:
     logger_ = logger.with-name "husb238"
     reg_ = dev.registers
-    get-capabilities --force-refresh
+    get-capabilities
 
   read-status-voltage --code=false -> float?:
     raw-voltage := read-register_ REG-PD-STATUS0_ --mask=PD-STATUS0-SRC-VOLTAGE-MASK_
@@ -205,27 +205,45 @@ class Husb238:
     return result
 
 
+  /**
+  Returns the source capabilities advertised by the attached PD source.
+
+  The returned map has integer voltage keys (5, 9, 12, 15, 18, 20) mapped
+    to the maximum current (as a float) the source offers at that voltage.
+    Only detected PDOs are included.
+
+  If $force-refresh is set, sends a Get_SRC_Cap command to the source
+    to refresh the capability registers before reading them. If a previous
+    PDO request was active and the refreshed contract no longer matches,
+    the previous request is re-issued.
+  */
   get-capabilities --force-refresh=false -> Map:
-    // Refreshes data in device registers for src capabilities:
     if force-refresh:
       write-register_ REG-GO-COMMAND_ REG-GO-COMMAND-GET-SRC-CAP_ --mask=REG-GO-COMMAND-MASK_
-      if is-pd-present and (capabilities_.contains previous-request_) and (read-status-voltage != previous-request_):
-        request-pdo previous-request_
+      // After refresh the source may renegotiate, dropping the previous
+      // contract.  Re-request if it was lost.
+      if is-pd-present and (capabilities_.contains previous-request_):
+        current-voltage := read-status-voltage
+        if current-voltage != null and current-voltage.to-int != previous-request_:
+          request-pdo previous-request_
       sleep --ms=250
 
+    pdo-registers ::= [
+      [5,  REG-SRC-PDO-5V_],
+      [9,  REG-SRC-PDO-9V_],
+      [12, REG-SRC-PDO-12V_],
+      [15, REG-SRC-PDO-15V_],
+      [18, REG-SRC-PDO-18V_],
+      [20, REG-SRC-PDO-20V_],
+    ]
+
     capabilities_.clear
-    if (read-register_ REG-SRC-PDO-5V_ --mask=PDO-SRC-DETECT-MASK_) == 1:
-      capabilities_[5] = convert-code-to-current_ (read-register_ REG-SRC-PDO-5V_ --mask=PDO-SRC-CURRENT-MASK_)
-    if (read-register_ REG-SRC-PDO-9V_ --mask=PDO-SRC-DETECT-MASK_) == 1:
-      capabilities_[9] = convert-code-to-current_ (read-register_ REG-SRC-PDO-9V_ --mask=PDO-SRC-CURRENT-MASK_)
-    if (read-register_ REG-SRC-PDO-12V_ --mask=PDO-SRC-DETECT-MASK_) == 1:
-      capabilities_[12] = convert-code-to-current_ (read-register_ REG-SRC-PDO-12V_ --mask=PDO-SRC-CURRENT-MASK_)
-    if (read-register_ REG-SRC-PDO-15V_ --mask=PDO-SRC-DETECT-MASK_) == 1:
-      capabilities_[15] = convert-code-to-current_ (read-register_ REG-SRC-PDO-15V_ --mask=PDO-SRC-CURRENT-MASK_)
-    if (read-register_ REG-SRC-PDO-18V_ --mask=PDO-SRC-DETECT-MASK_) == 1:
-      capabilities_[18] = convert-code-to-current_ (read-register_ REG-SRC-PDO-18V_ --mask=PDO-SRC-CURRENT-MASK_)
-    if (read-register_ REG-SRC-PDO-20V_ --mask=PDO-SRC-DETECT-MASK_) == 1:
-      capabilities_[20] = convert-code-to-current_ (read-register_ REG-SRC-PDO-20V_ --mask=PDO-SRC-CURRENT-MASK_)
+    pdo-registers.do: | entry |
+      voltage := entry[0]
+      register := entry[1]
+      if (read-register_ register --mask=PDO-SRC-DETECT-MASK_) == 1:
+        capabilities_[voltage] = convert-code-to-current_
+            (read-register_ register --mask=PDO-SRC-CURRENT-MASK_)
     return capabilities_
 
   hard-reset -> none:
