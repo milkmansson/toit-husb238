@@ -6,7 +6,19 @@ import log
 import serial.device as serial
 import serial.registers as registers
 
+/**
+Driver for the HUSB238 USB Power Delivery sink controller.
+
+Communicates over I2C to read PD status, query source capabilities,
+  and request specific voltage/current PDOs from an attached USB-C
+  power source.
+
+The HUSB238 supports PD3.0 and Type-C V1.4 with fixed PDO
+  voltages of 5V, 9V, 12V, 15V, 18V, and 20V.
+*/
 class Husb238:
+
+  /** The default I2C slave address of the HUSB238. */
   static I2C-ADDRESS ::= 0x08
 
   static REG-PD-STATUS0_  ::= 0x00
@@ -100,6 +112,13 @@ class Husb238:
   capabilities_/Map := {:}
   previous-request_/float := 0.0
 
+  /**
+  Constructs a HUSB238 driver using the given I2C $dev.
+
+  Reads the source capability registers on creation. Use
+    $get-capabilities with --force-refresh to issue a fresh
+    Get_SRC_Cap command if needed after construction.
+  */
   constructor
       dev/serial.Device
       --logger/log.Logger=log.default:
@@ -107,6 +126,17 @@ class Husb238:
     reg_ = dev.registers
     get-capabilities
 
+  /**
+  Returns the currently contracted PD voltage in volts.
+
+  If no explicit PD contract is active, returns 5.0 if a legacy
+    5V connection is detected, or 0.0 if unattached.
+
+  If $code is set, returns the raw register code instead of the
+    voltage in volts.
+
+  Returns null if the register contains an unexpected value.
+  */
   read-status-voltage --code=false -> float?:
     raw-voltage := read-register_ REG-PD-STATUS0_ --mask=PD-STATUS0-SRC-VOLTAGE-MASK_
     raw-current := read-register_ REG-PD-STATUS0_ --mask=PD-STATUS0-SRC-CURRENT-MASK_
@@ -120,6 +150,18 @@ class Husb238:
     if code: return raw-voltage.to-float
     return value
 
+  /**
+  Returns the currently contracted PD current in amps.
+
+  If no explicit PD contract is active, returns the legacy 5V
+    current if a legacy connection is detected, or 0.0 if
+    unattached.
+
+  If $code is set, returns the raw register code instead of the
+    current in amps.
+
+  Returns null if the register contains an unexpected value.
+  */
   read-status-current --code=false -> float?:
     raw-voltage := read-register_ REG-PD-STATUS0_ --mask=PD-STATUS0-SRC-VOLTAGE-MASK_
     raw-current := read-register_ REG-PD-STATUS0_ --mask=PD-STATUS0-SRC-CURRENT-MASK_
@@ -133,11 +175,24 @@ class Husb238:
     if code: return raw-current.to-float
     return value
 
+  /**
+  Returns whether the device has a legacy (non-PD) 5V connection.
+
+  Returns false if an explicit PD contract is present. Otherwise
+    checks the 5V_VOLTAGE field in PD_STATUS1.
+  */
   is-legacy-5v -> bool:
     if is-pd-present: return false
     raw := read-register_ REG-PD-STATUS1_ --mask=PD-STATUS1-5V-VOLTAGE-MASK_
     return (raw == 1)
 
+  /**
+  Returns the current capability of a legacy 5V connection in amps.
+
+  Reads the 5V_CURRENT field from PD_STATUS1. Returns 1.5, 2.4,
+    or 3.0 for the respective Type-C current advertisements, or
+    0.0 for the default USB current.
+  */
   legacy-5v-current -> float:
     raw := read-register_ REG-PD-STATUS1_ --mask=PD-STATUS1-5V-CURRENT-MASK_
     if raw == 0b01: return 1.5
@@ -146,7 +201,11 @@ class Husb238:
     else: return 0.0
 
   /**
-  Returns which CC is connected - CC1 or CC2. (USBC cable orientation)
+  Returns which CC line is connected: 1 for CC1 or 2 for CC2.
+
+  Indicates the physical orientation of the USB-C cable.
+
+  Returns null and logs an error if no cable is attached.
   */
   read-cc-direction -> int?:
     if is-cable-attached:
@@ -175,9 +234,18 @@ class Husb238:
     return raw != 0
 
   /**
-  Requests a PDO.
+  Requests a PD contract at the given $voltage.
 
-  Returns PD_STATUS1:PD_RESPONSE.  Note that the Current is not requested.
+  Writes the voltage selection to the SRC_PDO register and issues
+    a Request PDO command. The $voltage must be an integer (5, 9,
+    12, 15, 18, or 20) that is present in the current capabilities.
+
+  Returns the PD_RESPONSE code from PD_STATUS1. Compare against
+    $PD-STATUS1-RESPONSE-SUCCESS_ to check for success.
+
+  # Errors
+  It is an error if the $voltage is not in the capabilities map or if no cable
+    is attached.
   */
   request-pdo voltage/float -> int:
     // check selection is in the capabilities list:
@@ -246,9 +314,15 @@ class Husb238:
             (read-register_ register --mask=PDO-SRC-CURRENT-MASK_)
     return capabilities_
 
+  /**
+  Sends a USB PD hard reset command.
+
+  Discharges VIN and reboots the HUSB238. Blocks for 300ms to
+    allow the chip to complete the reset sequence before returning.
+  */
   hard-reset -> none:
     write-register_ REG-GO-COMMAND_ REG-GO-COMMAND-HARD-RESET_ --mask=REG-GO-COMMAND-MASK_
-    // back off while VIN is being discharged and the chip reboots
+    // Back off while VIN is being discharged and the chip reboots.
     sleep --ms=300
 
   convert-code-to-current_ raw-value -> float?:
@@ -306,6 +380,12 @@ class Husb238:
     else:
       return PD-SELECT-VOLTAGE-UNSELECTED_
 
+  /**
+  Returns a human-readable string for the given PD response $result code.
+
+  Maps the PD_RESPONSE field values from PD_STATUS1 to descriptive
+    strings for logging and diagnostics.
+  */
   get-string-result-code result/int -> string:
     if result == PD-STATUS1-RESPONSE-NO-RESPONSE_: return "No Response"
     else if result == PD-STATUS1-RESPONSE-SUCCESS_: return "Success"
