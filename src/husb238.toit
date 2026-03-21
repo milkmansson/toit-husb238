@@ -20,40 +20,40 @@ class Husb238:
   static REG-SRC-PDO_     ::= 0x08
   static REG-GO-COMMAND_  ::= 0x09
 
-  /** for use with REG-PD-STATUS-0 */
+  /** for use with REG-PD-STATUS0 */
   static PD-STATUS0-SRC-VOLTAGE-MASK_ ::= 0b11110000
   static PD-STATUS0-SRC-CURRENT-MASK_ ::= 0b00001111
 
   /** PD voltage when an explicit contract is established. ($PD-STATUS0-SRC-VOLTAGE-MASK_) */
-  static PD-SRC-VOLTAGE-UNATTACHED_ ::= 0b0000 // Unattached
-  static PD-SRC-VOLTAGE-5V_         ::= 0b0001 // PD 5V
-  static PD-SRC-VOLTAGE-9V_         ::= 0b0010 // PD 9V
-  static PD-SRC-VOLTAGE-12V_        ::= 0b0011 // PD 12V
-  static PD-SRC-VOLTAGE-15V_        ::= 0b0100 // PD 15V
-  static PD-SRC-VOLTAGE-18V_        ::= 0b0101 // PD 18V
-  static PD-SRC-VOLTAGE-20V_        ::= 0b0110 // PD 20V
-  // Others = Reserved
+  static PD-SRC-VOLTAGE-UNATTACHED_ ::= 0b0000 // Unattached.
+  static PD-SRC-VOLTAGE-5V_         ::= 0b0001 // PD 5V.
+  static PD-SRC-VOLTAGE-9V_         ::= 0b0010 // PD 9V.
+  static PD-SRC-VOLTAGE-12V_        ::= 0b0011 // PD 12V.
+  static PD-SRC-VOLTAGE-15V_        ::= 0b0100 // PD 15V.
+  static PD-SRC-VOLTAGE-18V_        ::= 0b0101 // PD 18V.
+  static PD-SRC-VOLTAGE-20V_        ::= 0b0110 // PD 20V.
+  // Others = Reserved.
 
   /** Options in $REG-PD-STATUS0_ (in $PD-STATUS0-SRC-CURRENT-MASK_)
-  Common to all SRC-PDC-** registers */
-  static PD-CURRENT-0-50A_ ::= 0b0000 // 0.5A
-  static PD-CURRENT-0-70A_ ::= 0b0001 // 0.7A
-  static PD-CURRENT-1-00A_ ::= 0b0010 // 1A
-  static PD-CURRENT-1-25A_ ::= 0b0011 // 1.25A
-  static PD-CURRENT-1-50A_ ::= 0b0100 // 1.5A
-  static PD-CURRENT-1-75A_ ::= 0b0101 // 1.75A
-  static PD-CURRENT-2-00A_ ::= 0b0110 // 2A
-  static PD-CURRENT-2-25A_ ::= 0b0111 // 2.25A
-  static PD-CURRENT-2-50A_ ::= 0b1000 // 2.5A
-  static PD-CURRENT-2-75A_ ::= 0b1001 // 2.75A
-  static PD-CURRENT-3-00A_ ::= 0b1010 // 3A
-  static PD-CURRENT-3-25A_ ::= 0b1011 // 3.25A
-  static PD-CURRENT-3-50A_ ::= 0b1100 // 3.5A
-  static PD-CURRENT-4-00A_ ::= 0b1101 // 4A
-  static PD-CURRENT-4-50A_ ::= 0b1110 // 4.5A
-  static PD-CURRENT-5-00A_ ::= 0b1111 // 5A
+    Common to all SRC-PD0-** registers */
+  static PD-CURRENT-0-50A_ ::= 0b0000 // 0.5A.
+  static PD-CURRENT-0-70A_ ::= 0b0001 // 0.7A.
+  static PD-CURRENT-1-00A_ ::= 0b0010 // 1A.
+  static PD-CURRENT-1-25A_ ::= 0b0011 // 1.25A.
+  static PD-CURRENT-1-50A_ ::= 0b0100 // 1.5A.
+  static PD-CURRENT-1-75A_ ::= 0b0101 // 1.75A.
+  static PD-CURRENT-2-00A_ ::= 0b0110 // 2A.
+  static PD-CURRENT-2-25A_ ::= 0b0111 // 2.25A.
+  static PD-CURRENT-2-50A_ ::= 0b1000 // 2.5A.
+  static PD-CURRENT-2-75A_ ::= 0b1001 // 2.75A.
+  static PD-CURRENT-3-00A_ ::= 0b1010 // 3A.
+  static PD-CURRENT-3-25A_ ::= 0b1011 // 3.25A.
+  static PD-CURRENT-3-50A_ ::= 0b1100 // 3.5A.
+  static PD-CURRENT-4-00A_ ::= 0b1101 // 4A.
+  static PD-CURRENT-4-50A_ ::= 0b1110 // 4.5A.
+  static PD-CURRENT-5-00A_ ::= 0b1111 // 5A.
 
-  /** for use with REG-PD-STATUS-0 */
+  /** for use with REG-PD-STATUS0 */
   static PD-STATUS1-CC-DIR-MASK_     ::= 0b10000000
   static PD-STATUS1-ATTACH-MASK_     ::= 0b01000000
   static PD-STATUS1-RESPONSE-MASK_   ::= 0b00111000
@@ -87,12 +87,6 @@ class Husb238:
   static PD-SELECT-VOLTAGE-18V_        ::= 0b1001 // PD 18V
   static PD-SELECT-VOLTAGE-20V_        ::= 0b1010 // PD 20V
 
-  /** SRC-PDO-*V options */
-  static PDO-DETECT-MASK_  ::= 0b10000000
-  static PDO-CURRENT-MASK_ ::= 0b00001111
-
-  /** $REG-SRC-PDO_ Register */
-  static PDO-SELECT-MASK_ ::= 0b11110000
 
   /** $REG-GO-COMMAND_ Register */
   static REG-GO-COMMAND-MASK_ ::= 0b00011111
@@ -104,7 +98,7 @@ class Husb238:
   reg_/registers.Registers := ?
   logger_/log.Logger := ?
   capabilities_/Map := {:}
-  previous-request_/int := 0
+  previous-request_/float := 0.0
 
   constructor
       dev/serial.Device
@@ -123,7 +117,7 @@ class Husb238:
     if value == null:
       logger_.error "read-status-voltage: unexpected value" --tags={"PD-STATUS0-SRC-VOLTAGE-MASK" : bits-16_ raw-voltage}
       return null
-    if code: return raw-voltage
+    if code: return raw-voltage.to-float
     return value
 
   read-status-current --code=false -> float?:
@@ -136,7 +130,7 @@ class Husb238:
     if value == null:
       logger_.error "read-status-current: unexpected value" --tags={"PD-STATUS0-SRC-CURRENT-MASK" : bits-16_ raw-current}
       return null
-    if code: return raw-current
+    if code: return raw-current.to-float
     return value
 
   is-legacy-5v -> bool:
@@ -185,7 +179,7 @@ class Husb238:
 
   Returns PD_STATUS1:PD_RESPONSE.  Note that the Current is not requested.
   */
-  request-pdo voltage/int -> int:
+  request-pdo voltage/float -> int:
     // check selection is in the capabilities list:
     assert: capabilities_.contains voltage
     assert: is-cable-attached
@@ -270,25 +264,27 @@ class Husb238:
     else:
       return null
 
-  convert-voltage-to-code_ voltage -> int?:
-    v := (voltage is float ? (voltage as float).round : voltage)  // 12.0 -> 12
-    if v == 5.0: return PD-SRC-VOLTAGE-5V_
-    else if v == 9.0: return PD-SRC-VOLTAGE-9V_
-    else if v == 12.0: return PD-SRC-VOLTAGE-12V_
-    else if v == 15.0: return PD-SRC-VOLTAGE-15V_
-    else if v == 18.0: return PD-SRC-VOLTAGE-18V_
-    else if v == 20.0: return PD-SRC-VOLTAGE-20V_
+  convert-voltage-to-code_ voltage/float -> int?:
+    if voltage == 5.0: return PD-SRC-VOLTAGE-5V_
+    else if voltage == 9.0: return PD-SRC-VOLTAGE-9V_
+    else if voltage == 12.0: return PD-SRC-VOLTAGE-12V_
+    else if voltage == 15.0: return PD-SRC-VOLTAGE-15V_
+    else if voltage == 18.0: return PD-SRC-VOLTAGE-18V_
+    else if voltage == 20.0: return PD-SRC-VOLTAGE-20V_
     else:
       return null
 
-  convert-voltage-to-pdo-code_ voltage -> int?:
-    v := (voltage is float ? (voltage as float).round : voltage)  // 12.0 -> 12
-    if v == 5.0: return PD-SELECT-VOLTAGE-5V_
-    else if v == 9.0: return PD-SELECT-VOLTAGE-9V_
-    else if v == 12.0: return PD-SELECT-VOLTAGE-12V_
-    else if v == 15.0: return PD-SELECT-VOLTAGE-15V_
-    else if v == 18.0: return PD-SELECT-VOLTAGE-18V_
-    else if v == 20.0: return PD-SELECT-VOLTAGE-20V_
+  /**
+  Returns a default of $PD-SELECT-VOLTAGE-UNSELECTED_ as when empty this is the
+    actual value.
+  */
+  convert-voltage-to-pdo-code_ voltage/float -> int:
+    if voltage == 5.0: return PD-SELECT-VOLTAGE-5V_
+    else if voltage == 9.0: return PD-SELECT-VOLTAGE-9V_
+    else if voltage == 12.0: return PD-SELECT-VOLTAGE-12V_
+    else if voltage == 15.0: return PD-SELECT-VOLTAGE-15V_
+    else if voltage == 18.0: return PD-SELECT-VOLTAGE-18V_
+    else if voltage == 20.0: return PD-SELECT-VOLTAGE-20V_
     else:
       return PD-SELECT-VOLTAGE-UNSELECTED_
 
@@ -307,14 +303,17 @@ class Husb238:
    is left at 0xFF and offset at 0x0, it is treated as a read from the whole
    register.
   */
-  read-register_ register/int --mask/int=0xFF --offset/int=(mask.count-trailing-zeros) -> any:
+  read-register_ register/int --mask/int=0xFF --offset/int=(mask.count-trailing-zeros) -> int:
     raw-value := reg_.read-u8 register
+    return-value := ?
     if mask == 0xFF and offset == 0:
-      return raw-value
+      return-value = raw-value
     else:
       masked-value := (raw-value & mask) >> offset
-      return masked-value
+      return-value = masked-value
     sleep --ms=25
+    return return-value
+
   /**
   Writes the given register with the supplied mask.
 
@@ -322,7 +321,7 @@ class Husb238:
    the mask is left at 0xFF and offset at 0x0, it is treated as a write to the
    whole register.
   */
-  write-register_ register/int value/any --mask/int=0xFF --offset/int=(mask.count-trailing-zeros) -> none:
+  write-register_ register/int value/int --mask/int=0xFF --offset/int=(mask.count-trailing-zeros) -> none:
     // find allowed value range within field
     max/int := mask >> offset
     // check the value fits the field
