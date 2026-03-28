@@ -27,8 +27,8 @@ with just the 3v3 alone being wired.
 
 main:
   frequency := 400_000
-  sda := gpio.Pin 9
-  scl := gpio.Pin 8
+  sda := gpio.Pin 19
+  scl := gpio.Pin 20
   bus := i2c.Bus --sda=sda --scl=scl --frequency=frequency
   scandevices := bus.scan
 
