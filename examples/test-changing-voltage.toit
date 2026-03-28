@@ -36,8 +36,8 @@ INA226.
 
 main:
   frequency := 400_000
-  sda := gpio.Pin 9
-  scl := gpio.Pin 8
+  sda := gpio.Pin 19
+  scl := gpio.Pin 20
   bus := i2c.Bus --sda=sda --scl=scl --frequency=frequency
   scandevices := bus.scan
 
@@ -107,8 +107,16 @@ main:
       print
 
 
-  capabilities = husb238-driver.get-capabilities
-  // Check with INA226 (if present)
+  print "Resetting to 5v..."
+  result = husb238-driver.request-pdo 5
+
+  // Manually check the results:
+  if result == Husb238.PD-STATUS1-RESPONSE-NO-RESPONSE_: print " No Response"
+  if result == Husb238.PD-STATUS1-RESPONSE-SUCCESS_: print " Success"
+  if result == Husb238.PD-STATUS1-RESPONSE-INVALID_: print " Invalid command or argument"
+  if result == Husb238.PD-STATUS1-RESPONSE-NOT-SUPPORTED_: print " Command not supported"
+  if result == Husb238.PD-STATUS1-RESPONSE-TRANS-FAIL_: print " Transaction Fail (no good CRC)"
+
   bus-voltage = 0.0
   if ina226-driver != null:
     5.repeat:

@@ -9,15 +9,13 @@ import serial.registers as registers
 /**
 Driver for the HUSB238 USB Power Delivery sink controller.
 
-Communicates over I2C to read PD status, query source capabilities,
-  and request specific voltage/current PDOs from an attached USB-C
-  power source.
+Communicates over I2C to read PD status, query source capabilities, and request
+  specific voltage/current PDOs from an attached USB-C power source.
 
 The HUSB238 supports PD3.0 and Type-C V1.4 with fixed PDO
   voltages of 5V, 9V, 12V, 15V, 18V, and 20V.
 */
 class Husb238:
-
   /** The default I2C slave address of the HUSB238. */
   static I2C-ADDRESS ::= 0x08
 
@@ -32,6 +30,15 @@ class Husb238:
   static REG-SRC-PDO_     ::= 0x08
   static REG-GO-COMMAND_  ::= 0x09
 
+  static PDO-REGISTERS_ ::= [
+      [5,  REG-SRC-PDO-5V_],
+      [9,  REG-SRC-PDO-9V_],
+      [12, REG-SRC-PDO-12V_],
+      [15, REG-SRC-PDO-15V_],
+      [18, REG-SRC-PDO-18V_],
+      [20, REG-SRC-PDO-20V_],
+    ]
+
   /** for use with REG-PD-STATUS0 */
   static PD-STATUS0-SRC-VOLTAGE-MASK_ ::= 0b11110000
   static PD-STATUS0-SRC-CURRENT-MASK_ ::= 0b00001111
@@ -45,6 +52,7 @@ class Husb238:
   static PD-SRC-VOLTAGE-18V_        ::= 0b0101 // PD 18V.
   static PD-SRC-VOLTAGE-20V_        ::= 0b0110 // PD 20V.
   // Others = Reserved.
+
 
   /** Options in $REG-PD-STATUS0_ (in $PD-STATUS0-SRC-CURRENT-MASK_)
     Common to all SRC-PD0-** registers */
@@ -110,7 +118,7 @@ class Husb238:
   reg_/registers.Registers := ?
   logger_/log.Logger := ?
   capabilities_/Map := {:}
-  previous-request_/float := 0.0
+  previous-request_/int := 0
 
   /**
   Constructs a HUSB238 driver using the given I2C $dev.
@@ -247,7 +255,7 @@ class Husb238:
   It is an error if the $voltage is not in the capabilities map or if no cable
     is attached.
   */
-  request-pdo voltage/float -> int:
+  request-pdo voltage/int -> int:
     // check selection is in the capabilities list:
     assert: capabilities_.contains voltage
     assert: is-cable-attached
@@ -296,17 +304,8 @@ class Husb238:
           request-pdo previous-request_
       sleep --ms=250
 
-    pdo-registers ::= [
-      [5,  REG-SRC-PDO-5V_],
-      [9,  REG-SRC-PDO-9V_],
-      [12, REG-SRC-PDO-12V_],
-      [15, REG-SRC-PDO-15V_],
-      [18, REG-SRC-PDO-18V_],
-      [20, REG-SRC-PDO-20V_],
-    ]
-
     capabilities_.clear
-    pdo-registers.do: | entry |
+    PDO-REGISTERS_.do: | entry |
       voltage := entry[0]
       register := entry[1]
       if (read-register_ register --mask=PDO-SRC-DETECT-MASK_) == 1:
@@ -370,13 +369,13 @@ class Husb238:
   Returns a default of $PD-SELECT-VOLTAGE-UNSELECTED_ as when empty this is the
     actual value.
   */
-  convert-voltage-to-pdo-code_ voltage/float -> int:
-    if voltage == 5.0: return PD-SELECT-VOLTAGE-5V_
-    else if voltage == 9.0: return PD-SELECT-VOLTAGE-9V_
-    else if voltage == 12.0: return PD-SELECT-VOLTAGE-12V_
-    else if voltage == 15.0: return PD-SELECT-VOLTAGE-15V_
-    else if voltage == 18.0: return PD-SELECT-VOLTAGE-18V_
-    else if voltage == 20.0: return PD-SELECT-VOLTAGE-20V_
+  convert-voltage-to-pdo-code_ voltage/int -> int:
+    if voltage == 5: return PD-SELECT-VOLTAGE-5V_
+    else if voltage == 9: return PD-SELECT-VOLTAGE-9V_
+    else if voltage == 12: return PD-SELECT-VOLTAGE-12V_
+    else if voltage == 15: return PD-SELECT-VOLTAGE-15V_
+    else if voltage == 18: return PD-SELECT-VOLTAGE-18V_
+    else if voltage == 20: return PD-SELECT-VOLTAGE-20V_
     else:
       return PD-SELECT-VOLTAGE-UNSELECTED_
 
