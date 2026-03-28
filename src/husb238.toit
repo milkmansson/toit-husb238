@@ -54,8 +54,11 @@ class Husb238:
   // Others = Reserved.
 
 
-  /** Options in $REG-PD-STATUS0_ (in $PD-STATUS0-SRC-CURRENT-MASK_)
-    Common to all SRC-PD0-** registers */
+  /**
+  Options in $REG-PD-STATUS0_ (in $PD-STATUS0-SRC-CURRENT-MASK_).
+
+  Common to all SRC-PD0-** registers.
+  */
   static PD-CURRENT-0-50A_ ::= 0b0000 // 0.5A.
   static PD-CURRENT-0-70A_ ::= 0b0001 // 0.7A.
   static PD-CURRENT-1-00A_ ::= 0b0010 // 1A.
@@ -73,7 +76,7 @@ class Husb238:
   static PD-CURRENT-4-50A_ ::= 0b1110 // 4.5A.
   static PD-CURRENT-5-00A_ ::= 0b1111 // 5A.
 
-  /** for use with REG-PD-STATUS0 */
+  /** For use with REG-PD-STATUS1_. */
   static PD-STATUS1-CC-DIR-MASK_     ::= 0b10000000
   static PD-STATUS1-ATTACH-MASK_     ::= 0b01000000
   static PD-STATUS1-RESPONSE-MASK_   ::= 0b00111000
@@ -108,7 +111,7 @@ class Husb238:
   static PD-SELECT-VOLTAGE-20V_        ::= 0b1010 // PD 20V
 
 
-  /** $REG-GO-COMMAND_ Register */
+  /** Defines values for the $REG-GO-COMMAND_ register. */
   static REG-GO-COMMAND-MASK_ ::= 0b00011111
 
   static REG-GO-COMMAND-REQUEST-PDO_ ::= 0b00001   // Requests the PDO saved in PDO_SELECT register
@@ -123,9 +126,9 @@ class Husb238:
   /**
   Constructs a HUSB238 driver using the given I2C $dev.
 
-  Reads the source capability registers on creation. Use
-    $get-capabilities with --force-refresh to issue a fresh
-    Get_SRC_Cap command if needed after construction.
+  Reads the source capability registers on creation. Use $get-capabilities with
+    --force-refresh to issue a fresh 'Get_SRC_Cap' command if needed after
+    construction.
   */
   constructor
       dev/serial.Device
@@ -137,11 +140,10 @@ class Husb238:
   /**
   Returns the currently contracted PD voltage in volts.
 
-  If no explicit PD contract is active, returns 5.0 if a legacy
-    5V connection is detected, or 0.0 if unattached.
+  If no explicit PD contract is active, returns 5.0 if a legacy 5V connection
+    is detected, or 0.0 if unattached.
 
-  If $code is set, returns the raw register code instead of the
-    voltage in volts.
+  If $code is set, returns the raw register code instead of the voltage in volts.
 
   Returns null if the register contains an unexpected value.
   */
@@ -161,12 +163,10 @@ class Husb238:
   /**
   Returns the currently contracted PD current in amps.
 
-  If no explicit PD contract is active, returns the legacy 5V
-    current if a legacy connection is detected, or 0.0 if
-    unattached.
+  If no explicit PD contract is active, returns the legacy 5V current if a
+    legacy connection is detected, or 0.0 if unattached.
 
-  If $code is set, returns the raw register code instead of the
-    current in amps.
+  If $code is set, returns the raw register code instead of the current in amps.
 
   Returns null if the register contains an unexpected value.
   */
@@ -186,8 +186,8 @@ class Husb238:
   /**
   Returns whether the device has a legacy (non-PD) 5V connection.
 
-  Returns false if an explicit PD contract is present. Otherwise
-    checks the 5V_VOLTAGE field in PD_STATUS1.
+  Returns false if an explicit PD contract is present. Otherwise checks the
+    5V_VOLTAGE field in PD_STATUS1.
   */
   is-legacy-5v -> bool:
     if is-pd-present: return false
@@ -197,9 +197,9 @@ class Husb238:
   /**
   Returns the current capability of a legacy 5V connection in amps.
 
-  Reads the 5V_CURRENT field from PD_STATUS1. Returns 1.5, 2.4,
-    or 3.0 for the respective Type-C current advertisements, or
-    0.0 for the default USB current.
+  Reads the 5V_CURRENT field from PD_STATUS1. Returns 1.5, 2.4, or 3.0 for the
+    respective Type-C current advertisements, or 0.0 for the default USB
+    current.
   */
   legacy-5v-current -> float:
     raw := read-register_ REG-PD-STATUS1_ --mask=PD-STATUS1-5V-CURRENT-MASK_
@@ -244,9 +244,9 @@ class Husb238:
   /**
   Requests a PD contract at the given $voltage.
 
-  Writes the voltage selection to the SRC_PDO register and issues
-    a Request PDO command. The $voltage must be an integer (5, 9,
-    12, 15, 18, or 20) that is present in the current capabilities.
+  Writes the voltage selection to the SRC_PDO register and issues a Request PDO
+    command. The $voltage must be an integer (5, 9, 12, 15, 18, or 20) that is
+    present in the current capabilities.
 
   Returns the PD_RESPONSE code from PD_STATUS1. Compare against
     $PD-STATUS1-RESPONSE-SUCCESS_ to check for success.
@@ -284,14 +284,14 @@ class Husb238:
   /**
   Returns the source capabilities advertised by the attached PD source.
 
-  The returned map has integer voltage keys (5, 9, 12, 15, 18, 20) mapped
-    to the maximum current (as a float) the source offers at that voltage.
-    Only detected PDOs are included.
+  The returned map has integer voltage keys (5, 9, 12, 15, 18, 20) mapped to the
+    maximum current (as a float) the source offers at that voltage.  Only
+    detected PDOs are included.
 
-  If $force-refresh is set, sends a Get_SRC_Cap command to the source
-    to refresh the capability registers before reading them. If a previous
-    PDO request was active and the refreshed contract no longer matches,
-    the previous request is re-issued.
+  If $force-refresh is set, sends a Get_SRC_Cap command to the source to refresh
+    the capability registers before reading them. If a previous PDO request was
+    active and the refreshed contract no longer matches, the previous request is
+    re-issued.
   */
   get-capabilities --force-refresh=false -> Map:
     if force-refresh:
@@ -311,13 +311,13 @@ class Husb238:
       if (read-register_ register --mask=PDO-SRC-DETECT-MASK_) == 1:
         capabilities_[voltage] = convert-code-to-current_
             (read-register_ register --mask=PDO-SRC-CURRENT-MASK_)
-    return capabilities_
+    return capabilities_.copy
 
   /**
   Sends a USB PD hard reset command.
 
-  Discharges VIN and reboots the HUSB238. Blocks for 300ms to
-    allow the chip to complete the reset sequence before returning.
+  Discharges VIN and reboots the HUSB238. Blocks for 300ms to allow the chip to
+    complete the reset sequence before returning.
   */
   hard-reset -> none:
     write-register_ REG-GO-COMMAND_ REG-GO-COMMAND-HARD-RESET_ --mask=REG-GO-COMMAND-MASK_
@@ -366,8 +366,9 @@ class Husb238:
       return null
 
   /**
-  Returns a default of $PD-SELECT-VOLTAGE-UNSELECTED_ as when empty this is the
-    actual value.
+  Converts a $voltage in volts to a PDO select register code.
+
+  Returns $PD-SELECT-VOLTAGE-UNSELECTED_ for unrecognised voltages.
   */
   convert-voltage-to-pdo-code_ voltage/int -> int:
     if voltage == 5: return PD-SELECT-VOLTAGE-5V_
@@ -382,8 +383,8 @@ class Husb238:
   /**
   Returns a human-readable string for the given PD response $result code.
 
-  Maps the PD_RESPONSE field values from PD_STATUS1 to descriptive
-    strings for logging and diagnostics.
+  Maps the PD_RESPONSE field values from PD_STATUS1 to descriptive strings for
+    logging and diagnostics.
   */
   get-string-result-code result/int -> string:
     if result == PD-STATUS1-RESPONSE-NO-RESPONSE_: return "No Response"
@@ -397,8 +398,8 @@ class Husb238:
   Reads the given register with the supplied mask.
 
   Given that register reads are largely similar, implemented here. If the mask
-   is left at 0xFF and offset at 0x0, it is treated as a read from the whole
-   register.
+    is left at 0xFF and offset at 0x0, it is treated as a read from the whole
+    register.
   */
   read-register_ register/int --mask/int=0xFF --offset/int=(mask.count-trailing-zeros) -> int:
     raw-value := reg_.read-u8 register
@@ -415,8 +416,8 @@ class Husb238:
   Writes the given register with the supplied mask.
 
   Given that register writes are largely similar, it is implemented here.  If
-   the mask is left at 0xFF and offset at 0x0, it is treated as a write to the
-   whole register.
+    the mask is left at 0xFF and offset at 0x0, it is treated as a write to the
+    whole register.
   */
   write-register_ register/int value/int --mask/int=0xFF --offset/int=(mask.count-trailing-zeros) -> none:
     // find allowed value range within field
@@ -434,7 +435,7 @@ class Husb238:
     sleep --ms=25
 
   /**
-  Provides strings to display bitmasks nicely when testing.
+  Formats $x as a dotted binary string for diagnostic display.
   */
   bits-16_ x/int --min-display-bits/int=0 -> string:
     if (x > 255) or (min-display-bits > 8):
