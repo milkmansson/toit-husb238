@@ -92,7 +92,7 @@ main:
 
     // Manually check the results:
     if result == Husb238.PD-STATUS1-RESPONSE-NO-RESPONSE_: print " No Response"
-    if result == Husb238.PD-STATUS1-RESPONSE-SUCCESS_: print " Success"
+    if result == Husb238.PD-STATUS1-RESPONSE-SUCCESS: print " Success"
     if result == Husb238.PD-STATUS1-RESPONSE-INVALID_: print " Invalid command or argument"
     if result == Husb238.PD-STATUS1-RESPONSE-NOT-SUPPORTED_: print " Command not supported"
     if result == Husb238.PD-STATUS1-RESPONSE-TRANS-FAIL_: print " Transaction Fail (no good CRC)"
@@ -112,7 +112,7 @@ main:
 
   // Manually check the results:
   if result == Husb238.PD-STATUS1-RESPONSE-NO-RESPONSE_: print " No Response"
-  if result == Husb238.PD-STATUS1-RESPONSE-SUCCESS_: print " Success"
+  if result == Husb238.PD-STATUS1-RESPONSE-SUCCESS: print " Success"
   if result == Husb238.PD-STATUS1-RESPONSE-INVALID_: print " Invalid command or argument"
   if result == Husb238.PD-STATUS1-RESPONSE-NOT-SUPPORTED_: print " Command not supported"
   if result == Husb238.PD-STATUS1-RESPONSE-TRANS-FAIL_: print " Transaction Fail (no good CRC)"
