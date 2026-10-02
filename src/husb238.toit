@@ -84,7 +84,8 @@ class Husb238:
   static PD-STATUS1-5V-CURRENT-MASK_ ::= 0b00000011  // Current information of 5V contract
 
   static PD-STATUS1-RESPONSE-NO-RESPONSE_   ::= 0b000 // No Response
-  static PD-STATUS1-RESPONSE-SUCCESS_       ::= 0b001 // Success
+  /** PD_RESPONSE value in PD_STATUS1 meaning the last request succeeded. */
+  static PD-STATUS1-RESPONSE-SUCCESS ::= 0b001
   static PD-STATUS1-RESPONSE-INVALID_       ::= 0b011 // Invalid command or argument
   static PD-STATUS1-RESPONSE-NOT-SUPPORTED_ ::= 0b100 // Command not supported
   static PD-STATUS1-RESPONSE-TRANS-FAIL_    ::= 0b101 // Transaction Fail (no good CRC)
@@ -249,7 +250,7 @@ class Husb238:
     present in the current capabilities.
 
   Returns the PD_RESPONSE code from PD_STATUS1. Compare against
-    $PD-STATUS1-RESPONSE-SUCCESS_ to check for success.
+    $PD-STATUS1-RESPONSE-SUCCESS to check for success.
 
   # Errors
   It is an error if the $voltage is not in the capabilities map or if no cable
@@ -270,7 +271,7 @@ class Husb238:
 
     // Retrieve result
     result := read-register_ REG-PD-STATUS1_ --mask=PD-STATUS1-RESPONSE-MASK_
-    if result == PD-STATUS1-RESPONSE-SUCCESS_:
+    if result == PD-STATUS1-RESPONSE-SUCCESS:
       logger_.info "request-pdo: requested PDO Success." --tags={ "voltage" : voltage }
       previous-request_ = voltage
     else:
@@ -388,7 +389,7 @@ class Husb238:
   */
   get-string-result-code result/int -> string:
     if result == PD-STATUS1-RESPONSE-NO-RESPONSE_: return "No Response"
-    else if result == PD-STATUS1-RESPONSE-SUCCESS_: return "Success"
+    else if result == PD-STATUS1-RESPONSE-SUCCESS: return "Success"
     else if result == PD-STATUS1-RESPONSE-INVALID_: return "Invalid command or argument"
     else if result == PD-STATUS1-RESPONSE-NOT-SUPPORTED_: return "Command not supported"
     else if result == PD-STATUS1-RESPONSE-TRANS-FAIL_: return "Transaction Fail (no good CRC)"
